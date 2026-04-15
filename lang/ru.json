@@ -1,0 +1,71 @@
+{
+  "IMPTHEATER": {
+    "Settings": {
+      "RoomState": {
+        "Name": "Состояние комнаты"
+      },
+      "ShowLauncher": {
+        "Name": "Показывать кнопку Imp Theater",
+        "Hint": "Client setting: показывает маленькую кнопку Theater на сцене."
+      },
+      "AutoOpenOnPlay": {
+        "Name": "Открывать окно при старте воспроизведения",
+        "Hint": "Client setting: открывает окно Theater, когда GM запускает воспроизведение."
+      },
+      "SyncTolerance": {
+        "Name": "Допуск синхронизации в секундах",
+        "Hint": "Client setting: direct media корректируется только если рассинхрон больше этого значения."
+      },
+      "LocalVolume": {
+        "Name": "Локальная громкость"
+      }
+    },
+    "UI": {
+      "Launcher": "Theater",
+      "ToggleTitle": "Открыть или скрыть Imp Theater",
+      "SourceUrl": "Source URL",
+      "SourcePlaceholder": "Путь к Foundry-файлу, direct media URL или YouTube link",
+      "SourceType": "Источник",
+      "SourceAuto": "Auto",
+      "SourceDirect": "Direct media",
+      "SourceYoutube": "YouTube embed",
+      "MediaKind": "Media",
+      "MediaAuto": "Auto",
+      "MediaVideo": "Video",
+      "MediaAudio": "Audio",
+      "Title": "Название",
+      "TitlePlaceholder": "Необязательное название",
+      "Load": "Загрузить",
+      "Play": "Play",
+      "Pause": "Pause",
+      "Stop": "Stop",
+      "Sync": "Sync",
+      "Previous": "Предыдущий",
+      "Next": "Следующий",
+      "Playlists": "Плейлисты",
+      "PlaylistName": "Название плейлиста",
+      "CreatePlaylist": "Создать плейлист",
+      "NoPlaylists": "Плейлистов пока нет",
+      "AddPlaylist": "Добавить трек",
+      "DeletePlaylist": "Удалить папку",
+      "PlaylistEmpty": "В выбранном плейлисте пока пусто.",
+      "PlayPlaylist": "Запустить из плейлиста",
+      "RemovePlaylist": "Удалить из плейлиста",
+      "Close": "Закрыть",
+      "Untitled": "Без названия",
+      "NoSource": "Источник не выбран",
+      "Playing": "Играет",
+      "Paused": "Пауза",
+      "YoutubeNote": "YouTube embed синхронизируется, но каждому игроку всё равно нужен прямой доступ к YouTube.",
+      "Empty": "GM может загрузить Foundry-файл, direct media URL или YouTube embed link.",
+      "LocalVolume": "Локальная громкость"
+    },
+    "Notifications": {
+      "SourceRequired": "Imp Theater: сначала добавьте source URL.",
+      "PlaylistNameRequired": "Imp Theater: введите название плейлиста.",
+      "PlaylistRequired": "Imp Theater: сначала создайте или выберите плейлист.",
+      "MediaError": "Imp Theater: не удалось загрузить media source.",
+      "ClickToPlay": "Imp Theater: браузер заблокировал autoplay. Нажмите Play в окне Theater."
+    }
+  }
+}

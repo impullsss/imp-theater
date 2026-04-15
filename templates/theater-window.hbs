@@ -1,0 +1,110 @@
+<form class="imp-theater-form" autocomplete="off">
+  {{#if canControl}}
+    <section class="imp-theater-gm-panel">
+      <div class="imp-theater-field imp-theater-field-wide">
+        <label>{{localize "IMPTHEATER.UI.SourceUrl"}}</label>
+        <input type="text" name="sourceUrl" value="{{state.sourceUrl}}" placeholder="{{localize 'IMPTHEATER.UI.SourcePlaceholder'}}">
+        <input type="hidden" name="sourceType" value="youtube">
+        <input type="hidden" name="mediaKind" value="video">
+      </div>
+
+      <div class="imp-theater-field imp-theater-field-wide">
+        <label>{{localize "IMPTHEATER.UI.Title"}}</label>
+        <input type="text" name="title" value="{{state.title}}" placeholder="{{localize 'IMPTHEATER.UI.TitlePlaceholder'}}">
+      </div>
+
+      <div class="imp-theater-playlists">
+        <h3>{{localize "IMPTHEATER.UI.Playlists"}}</h3>
+        <div class="imp-theater-playlist-tools">
+          <input type="text" name="playlistName" placeholder="{{localize 'IMPTHEATER.UI.PlaylistName'}}">
+          <button type="button" data-action="create-playlist"><i class="fas fa-folder-plus"></i> {{localize "IMPTHEATER.UI.CreatePlaylist"}}</button>
+        </div>
+        <div class="imp-theater-playlist-tools">
+          <select name="activePlaylistId">
+            {{#if hasPlaylists}}
+              {{#each playlists}}
+                <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+              {{/each}}
+            {{else}}
+              <option value="">{{localize "IMPTHEATER.UI.NoPlaylists"}}</option>
+            {{/if}}
+          </select>
+          <button type="button" data-action="add-playlist" {{#unless hasPlaylists}}disabled{{/unless}}><i class="fas fa-plus"></i> {{localize "IMPTHEATER.UI.AddPlaylist"}}</button>
+          <button type="button" data-action="delete-playlist" {{#unless hasPlaylists}}disabled{{/unless}}><i class="fas fa-trash"></i> {{localize "IMPTHEATER.UI.DeletePlaylist"}}</button>
+        </div>
+
+        {{#if hasActivePlaylistItems}}
+          <ol>
+            {{#each activePlaylistItems}}
+              <li class="{{#if isPlaying}}is-playing{{/if}}">
+                <span>{{#if title}}{{title}}{{else}}{{sourceUrl}}{{/if}}</span>
+                <button type="button" data-action="play-playlist" data-index="{{@index}}" title="{{localize 'IMPTHEATER.UI.PlayPlaylist'}}">
+                  <i class="fas fa-play"></i>
+                </button>
+                <button type="button" data-action="remove-playlist" data-index="{{@index}}" title="{{localize 'IMPTHEATER.UI.RemovePlaylist'}}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </li>
+            {{/each}}
+          </ol>
+        {{else}}
+          <p>{{localize "IMPTHEATER.UI.PlaylistEmpty"}}</p>
+        {{/if}}
+
+        <div class="imp-theater-playlist-nav">
+          <button type="button" data-action="play"><i class="fas fa-play"></i> {{localize "IMPTHEATER.UI.Play"}}</button>
+          <button type="button" data-action="pause"><i class="fas fa-pause"></i> {{localize "IMPTHEATER.UI.Pause"}}</button>
+          <button type="button" data-action="stop"><i class="fas fa-stop"></i> {{localize "IMPTHEATER.UI.Stop"}}</button>
+          <button type="button" data-action="sync"><i class="fas fa-arrows-rotate"></i> {{localize "IMPTHEATER.UI.Sync"}}</button>
+          <button type="button" data-action="previous" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-backward-step"></i> {{localize "IMPTHEATER.UI.Previous"}}</button>
+          <button type="button" data-action="next" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-forward-step"></i> {{localize "IMPTHEATER.UI.Next"}}</button>
+        </div>
+      </div>
+    </section>
+  {{/if}}
+
+  <section class="imp-theater-stage {{#unless hasSource}}is-empty{{/unless}}">
+    <header class="imp-theater-status">
+      <div>
+        <strong>{{displayTitle}}</strong>
+        <span>{{statusText}}</span>
+      </div>
+      <button type="button" data-action="close" title="{{localize 'IMPTHEATER.UI.Close'}}">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </header>
+
+    {{#if hasSource}}
+      {{#if isYoutube}}
+        <div class="imp-theater-youtube-wrap">
+          <iframe
+            id="imp-theater-youtube-player"
+            class="imp-theater-youtube"
+            src="{{youtubeEmbedUrl}}"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowfullscreen
+          ></iframe>
+        </div>
+        <p class="imp-theater-note">{{localize "IMPTHEATER.UI.YoutubeNote"}}</p>
+      {{else}}
+        {{#if isAudio}}
+          <audio class="imp-theater-media" src="{{state.sourceUrl}}" preload="metadata" {{#if canControl}}controls{{/if}}></audio>
+        {{else}}
+          <video class="imp-theater-media" src="{{state.sourceUrl}}" preload="metadata" playsinline {{#if canControl}}controls{{/if}}></video>
+        {{/if}}
+      {{/if}}
+    {{else}}
+      <div class="imp-theater-empty">
+        <i class="fas fa-film"></i>
+        <p>{{localize "IMPTHEATER.UI.Empty"}}</p>
+      </div>
+    {{/if}}
+  </section>
+
+  <footer class="imp-theater-client-panel">
+    <label>
+      {{localize "IMPTHEATER.UI.LocalVolume"}}
+      <input type="range" min="0" max="1" step="0.01" value="{{localVolume}}" data-action="volume">
+    </label>
+  </footer>
+</form>

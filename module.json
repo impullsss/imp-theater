@@ -1,0 +1,40 @@
+{
+  "id": "imp-theater",
+  "title": "Imp Theater",
+  "description": "A small system-agnostic watch party module for synchronized media playback in Foundry VTT.",
+  "version": "0.1.10",
+  "authors": [
+    {
+      "name": "Impullsss"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "esmodules": [
+    "scripts/imp-theater.js"
+  ],
+  "styles": [
+    "styles/imp-theater.css"
+  ],
+  "templates": [
+    "templates/theater-window.hbs"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
+  "relationships": {
+    "systems": [],
+    "requires": []
+  }
+}
