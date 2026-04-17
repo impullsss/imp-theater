@@ -1,6 +1,7 @@
 const IMP_THEATER_MODULE_ID = "imp-theater";
 const IMP_THEATER_MODULE_PATH = document.currentScript?.src?.match(/\/modules\/([^/]+)\//)?.[1] ?? IMP_THEATER_MODULE_ID;
 const IMP_THEATER_SOCKET = `module.${IMP_THEATER_MODULE_ID}`;
+const IMP_THEATER_VOLUME_MAX = 2;
 let impTheaterTransientState = null;
 let impTheaterYoutubeApiPromise = null;
 
@@ -18,7 +19,7 @@ function impTheaterDefaultState() {
     activePlaylistId: "",
     playingPlaylistId: "",
     playlistIndex: -1,
-    globalVolume: 0.8,
+    globalVolume: 1,
     uiRevision: 0,
     playing: false,
     position: 0,
@@ -197,8 +198,8 @@ class ImpTheaterWindow extends Application {
       })),
       hasActivePlaylistItems: Boolean(activePlaylist?.items?.length),
       youtubeEmbedUrl: isYoutube ? this._youtubeEmbedUrl(youtubeId) : "",
-      localVolume: game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"),
-      globalVolume: Math.min(1, Math.max(0, Number(state.globalVolume ?? 0.8))),
+      localVolume: this._normalizeVolumeMultiplier(game.settings.get(IMP_THEATER_MODULE_ID, "localVolume")),
+      globalVolume: this._normalizeVolumeMultiplier(state.globalVolume),
       sourceTypeAuto: sourceType === "auto",
       sourceTypeDirect: sourceType === "direct",
       sourceTypeYoutube: sourceType === "youtube",
@@ -253,7 +254,7 @@ class ImpTheaterWindow extends Application {
     });
 
     root.querySelector("[data-action='volume']")?.addEventListener("input", async (event) => {
-      const volume = Number(event.currentTarget.value);
+      const volume = this._normalizeVolumeMultiplier(event.currentTarget.value);
       await game.settings.set(IMP_THEATER_MODULE_ID, "localVolume", volume);
       this._applyLocalVolume(volume);
     });
@@ -883,9 +884,15 @@ class ImpTheaterWindow extends Application {
   }
 
   _effectiveVolume(localVolume = game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"), state = impTheaterState()) {
-    const local = Math.min(1, Math.max(0, Number(localVolume)));
-    const global = Math.min(1, Math.max(0, Number(state.globalVolume ?? 0.8)));
-    return local * global;
+    const local = this._normalizeVolumeMultiplier(localVolume);
+    const global = this._normalizeVolumeMultiplier(state.globalVolume);
+    return Math.min(1, local * global);
+  }
+
+  _normalizeVolumeMultiplier(value, fallback = 1) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.min(IMP_THEATER_VOLUME_MAX, Math.max(0, numeric));
   }
 
   _applyLocalVolume(volume = game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"), state = impTheaterState()) {
@@ -917,9 +924,13 @@ class ImpTheaterWindow extends Application {
 
       if (!Number.isFinite(youtubeVolume)) return;
       const normalized = Math.min(1, Math.max(0, youtubeVolume / 100));
-      const global = Math.max(0.01, Math.min(1, Number(impTheaterState().globalVolume ?? 0.8)));
+      const state = impTheaterState();
       const current = Number(game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"));
-      const localFromYoutube = Math.min(1, Math.max(0, normalized / global));
+      const expected = this._effectiveVolume(current, state);
+      if (Math.abs(normalized - expected) < 0.02) return;
+
+      const global = Math.max(0.01, this._normalizeVolumeMultiplier(state.globalVolume));
+      const localFromYoutube = this._normalizeVolumeMultiplier(normalized / global);
       if (Math.abs(localFromYoutube - current) < 0.02) return;
 
       game.settings.set(IMP_THEATER_MODULE_ID, "localVolume", localFromYoutube);
@@ -958,7 +969,7 @@ class ImpTheaterWindow extends Application {
   async _setGlobalVolume(volume) {
     if (!game.user?.isGM) return;
     const state = impTheaterState();
-    const globalVolume = Math.min(1, Math.max(0, Number(volume)));
+    const globalVolume = this._normalizeVolumeMultiplier(volume);
     this._applyLocalVolume(undefined, { ...state, globalVolume });
     impTheaterTransientState = foundry.utils.deepClone({ ...state, globalVolume });
 
@@ -1046,7 +1057,7 @@ const ImpTheaterManager = {
   hidden: false,
   lastRenderedSourceKey: "",
   lastRenderedUiRevision: 0,
-  lastRenderedGlobalVolume: 0.8,
+  lastRenderedGlobalVolume: 1,
 
   init() {
     this.createLauncher();
@@ -1084,7 +1095,7 @@ const ImpTheaterManager = {
 
   syncToState(state) {
     const nextKey = impTheaterSourceKey(state);
-    const nextGlobalVolume = Number(state.globalVolume ?? 0.8);
+    const nextGlobalVolume = this.app?._normalizeVolumeMultiplier(state.globalVolume) ?? 1;
     if (this.app?.rendered && this.lastRenderedSourceKey && this.lastRenderedSourceKey !== nextKey) {
       this.render();
       return;
@@ -1226,7 +1237,7 @@ function registerImpTheaterSettings() {
     scope: "client",
     config: false,
     type: Number,
-    default: 0.8
+    default: 1
   });
 
   game.settings.register(IMP_THEATER_MODULE_ID, "windowState", {
