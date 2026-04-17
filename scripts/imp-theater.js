@@ -18,6 +18,7 @@ function impTheaterDefaultState() {
     activePlaylistId: "",
     playingPlaylistId: "",
     playlistIndex: -1,
+    globalVolume: 0.8,
     uiRevision: 0,
     playing: false,
     position: 0,
@@ -144,7 +145,13 @@ class ImpTheaterWindow extends Application {
     this._youtubeGMSyncTimer = null;
     this._youtubeVolumePollTimer = null;
     this._titleLookupTimer = null;
+    this._globalVolumeSaveTimer = null;
+    this._windowStateSaveTimer = null;
+    this._restoredWindowState = false;
     this._applyingLocalVolume = false;
+    this._onEdgeMouseMove = this._onEdgeMouseMove.bind(this);
+    this._onEdgeMouseLeave = this._onEdgeMouseLeave.bind(this);
+    this._onEdgeMouseDown = this._onEdgeMouseDown.bind(this);
   }
 
   static get defaultOptions() {
@@ -154,8 +161,8 @@ class ImpTheaterWindow extends Application {
       template: `modules/${IMP_THEATER_MODULE_PATH}/templates/theater-window.hbs`,
       title: "Imp Theater",
       width: 720,
-      height: "auto",
-      resizable: true,
+      height: 640,
+      resizable: false,
       minimizable: true,
       popOut: true
     });
@@ -191,6 +198,7 @@ class ImpTheaterWindow extends Application {
       hasActivePlaylistItems: Boolean(activePlaylist?.items?.length),
       youtubeEmbedUrl: isYoutube ? this._youtubeEmbedUrl(youtubeId) : "",
       localVolume: game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"),
+      globalVolume: Math.min(1, Math.max(0, Number(state.globalVolume ?? 0.8))),
       sourceTypeAuto: sourceType === "auto",
       sourceTypeDirect: sourceType === "direct",
       sourceTypeYoutube: sourceType === "youtube",
@@ -250,10 +258,14 @@ class ImpTheaterWindow extends Application {
       this._applyLocalVolume(volume);
     });
 
+    root.querySelector("[data-action='global-volume']")?.addEventListener("input", async (event) => {
+      await this._setGlobalVolume(event.currentTarget.value);
+    });
+
     const sourceInput = root.querySelector("[name='sourceUrl']");
-    sourceInput?.addEventListener("input", () => this._scheduleTitleLookup(root));
-    sourceInput?.addEventListener("change", () => this._scheduleTitleLookup(root, 0));
-    sourceInput?.addEventListener("blur", () => this._scheduleTitleLookup(root, 0));
+    sourceInput?.addEventListener("input", () => this._handleSourceInput(root));
+    sourceInput?.addEventListener("change", () => this._handleSourceInput(root, 0));
+    sourceInput?.addEventListener("blur", () => this._handleSourceInput(root, 0));
 
     const media = this._mediaElement();
     media?.addEventListener("error", () => {
@@ -271,9 +283,17 @@ class ImpTheaterWindow extends Application {
 
   async _render(force, options) {
     await super._render(force, options);
+    this._bindEdgeResize();
+    if (!this._restoredWindowState) {
+      this._restoredWindowState = true;
+      window.setTimeout(() => this._restoreWindowState(), 0);
+    }
     ImpTheaterManager.lastRenderedSourceKey = impTheaterSourceKey();
-    ImpTheaterManager.lastRenderedUiRevision = impTheaterState().uiRevision ?? 0;
+    const state = impTheaterState();
+    ImpTheaterManager.lastRenderedUiRevision = state.uiRevision ?? 0;
+    ImpTheaterManager.lastRenderedGlobalVolume = Number(state.globalVolume ?? 0.8);
     this._applyHiddenClass();
+    this._ensureResizeHandle();
     this._prepareYoutubePlayer();
     window.setTimeout(() => this._applyState(), 50);
     ImpTheaterManager.updateLauncher();
@@ -312,6 +332,154 @@ class ImpTheaterWindow extends Application {
     if (html instanceof HTMLElement) return html;
     if (html?.[0] instanceof HTMLElement) return html[0];
     return this.element instanceof HTMLElement ? this.element : this.element?.[0];
+  }
+
+
+
+  _getWindowElement() {
+    const element = this.element;
+    if (element instanceof HTMLElement) return element;
+    if (element?.[0] instanceof HTMLElement) return element[0];
+    return document.getElementById(this.options.id);
+  }
+
+  setPosition(position = {}) {
+    const result = super.setPosition(position);
+    this._scheduleWindowStateSave();
+    return result;
+  }
+
+  _restoreWindowState() {
+    const state = game.settings.get(IMP_THEATER_MODULE_ID, "windowState") || {};
+    const position = state.position || {};
+    if (!Object.keys(position).length) return;
+    this.setPosition(position);
+  }
+
+  _scheduleWindowStateSave() {
+    if (!this.rendered) return;
+    window.clearTimeout(this._windowStateSaveTimer);
+    this._windowStateSaveTimer = window.setTimeout(() => this._saveWindowStateNow(), 250);
+  }
+
+  async _saveWindowStateNow() {
+    const element = this._getWindowElement();
+    const rect = element?.getBoundingClientRect();
+    const position = {
+      left: this.position?.left ?? rect?.left,
+      top: this.position?.top ?? rect?.top,
+      width: this.position?.width ?? rect?.width,
+      height: this.position?.height ?? rect?.height
+    };
+    await game.settings.set(IMP_THEATER_MODULE_ID, "windowState", { position });
+  }
+
+  _bindEdgeResize() {
+    const element = this._getWindowElement();
+    if (!element || element.dataset.impTheaterEdgeResizeBound) return;
+    element.dataset.impTheaterEdgeResizeBound = "1";
+    element.addEventListener("mousemove", this._onEdgeMouseMove);
+    element.addEventListener("mouseleave", this._onEdgeMouseLeave);
+    element.addEventListener("mousedown", this._onEdgeMouseDown);
+  }
+
+  _onEdgeMouseMove(event) {
+    const element = this._getWindowElement();
+    if (!element || this._edgeResizing) return;
+    element.style.cursor = this._cursorForEdges(this._resizeEdgesFromEvent(event, element));
+  }
+
+  _onEdgeMouseLeave() {
+    const element = this._getWindowElement();
+    if (!element || this._edgeResizing) return;
+    element.style.cursor = "";
+  }
+
+  _onEdgeMouseDown(event) {
+    const element = this._getWindowElement();
+    if (!element || event.button !== 0) return;
+    const edges = this._resizeEdgesFromEvent(event, element);
+    if (!edges) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this._startEdgeResize(event, edges);
+  }
+
+  _resizeEdgesFromEvent(event, element) {
+    if (event.target.closest(".imp-theater-resize-handle")) return "se";
+    if (event.target.closest("button, input, select, textarea, iframe, video, audio")) return "";
+    const rect = element.getBoundingClientRect();
+    const threshold = 8;
+    let edges = "";
+    if (event.clientY - rect.top <= threshold) edges += "n";
+    if (rect.bottom - event.clientY <= threshold) edges += "s";
+    if (event.clientX - rect.left <= threshold) edges += "w";
+    if (rect.right - event.clientX <= threshold) edges += "e";
+    return edges;
+  }
+
+  _cursorForEdges(edges) {
+    if (!edges) return "";
+    if (["ne", "sw"].includes(edges)) return "nesw-resize";
+    if (["nw", "se"].includes(edges)) return "nwse-resize";
+    if (edges.includes("e") || edges.includes("w")) return "ew-resize";
+    if (edges.includes("n") || edges.includes("s")) return "ns-resize";
+    return "";
+  }
+
+  _startEdgeResize(event, edges) {
+    const element = this._getWindowElement();
+    if (!element) return;
+
+    this._edgeResizing = true;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const rect = element.getBoundingClientRect();
+    const minWidth = 420;
+    const minHeight = 360;
+
+    const move = (moveEvent) => {
+      const dx = moveEvent.clientX - startX;
+      const dy = moveEvent.clientY - startY;
+      let left = rect.left;
+      let top = rect.top;
+      let width = rect.width;
+      let height = rect.height;
+
+      if (edges.includes("e")) width = Math.max(minWidth, rect.width + dx);
+      if (edges.includes("w")) {
+        width = Math.max(minWidth, rect.width - dx);
+        left = rect.right - width;
+      }
+      if (edges.includes("s")) height = Math.max(minHeight, rect.height + dy);
+      if (edges.includes("n")) {
+        height = Math.max(minHeight, rect.height - dy);
+        top = rect.bottom - height;
+      }
+
+      this.setPosition({ left, top, width, height });
+    };
+
+    const stop = () => {
+      this._edgeResizing = false;
+      element.style.cursor = "";
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+      this._saveWindowStateNow();
+    };
+
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", stop);
+  }
+
+  _ensureResizeHandle() {
+    const element = this._getWindowElement();
+    if (!element || element.querySelector(".imp-theater-resize-handle")) return;
+
+    const handle = document.createElement("div");
+    handle.className = "imp-theater-resize-handle";
+    handle.title = "Resize";
+    element.appendChild(handle);
   }
 
   _mediaElement() {
@@ -502,6 +670,15 @@ class ImpTheaterWindow extends Application {
     return title ? { ...item, title } : item;
   }
 
+  _handleSourceInput(root, delay = 650) {
+    const titleInput = root.querySelector("[name='title']");
+    if (titleInput?.dataset.autoTitle && titleInput.value === titleInput.dataset.autoTitle) {
+      titleInput.value = "";
+      delete titleInput.dataset.autoTitle;
+    }
+    this._scheduleTitleLookup(root, delay);
+  }
+
   _scheduleTitleLookup(root, delay = 650) {
     if (!game.user?.isGM) return;
     window.clearTimeout(this._titleLookupTimer);
@@ -519,6 +696,18 @@ class ImpTheaterWindow extends Application {
     if (String(sourceInput?.value || "").trim() !== sourceUrl) return;
     if (String(titleInput?.value || "").trim()) return;
     titleInput.value = title;
+    titleInput.dataset.autoTitle = title;
+  }
+
+  _clearPendingTrackForm(root) {
+    const form = root.closest("form") || root;
+    const sourceInput = form.querySelector("[name='sourceUrl']");
+    const titleInput = form.querySelector("[name='title']");
+    if (sourceInput) sourceInput.value = "";
+    if (titleInput) {
+      titleInput.value = "";
+      delete titleInput.dataset.autoTitle;
+    }
   }
 
   async _loadMediaItem(item, overrides = {}) {
@@ -627,6 +816,7 @@ class ImpTheaterWindow extends Application {
       uiRevision: Number(state.uiRevision || 0) + 1,
       updatedAt: Date.now()
     });
+    this._clearPendingTrackForm(root);
   }
 
   async _playPlaylistItem(index) {
@@ -692,12 +882,18 @@ class ImpTheaterWindow extends Application {
     await this._playPlaylistItem((current - 1 + items.length) % items.length);
   }
 
-  _applyLocalVolume(volume = game.settings.get(IMP_THEATER_MODULE_ID, "localVolume")) {
-    const safeVolume = Math.min(1, Math.max(0, Number(volume)));
+  _effectiveVolume(localVolume = game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"), state = impTheaterState()) {
+    const local = Math.min(1, Math.max(0, Number(localVolume)));
+    const global = Math.min(1, Math.max(0, Number(state.globalVolume ?? 0.8)));
+    return local * global;
+  }
+
+  _applyLocalVolume(volume = game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"), state = impTheaterState()) {
+    const safeVolume = this._effectiveVolume(volume, state);
     const media = this._mediaElement();
     if (media) media.volume = safeVolume;
 
-    if (impTheaterState().sourceType === "youtube") {
+    if (state.sourceType === "youtube") {
       this._applyingLocalVolume = true;
       this._youtubeCommand("setVolume", [Math.round(safeVolume * 100)]);
       this._youtubeCommand(safeVolume <= 0 ? "mute" : "unMute", []);
@@ -721,12 +917,14 @@ class ImpTheaterWindow extends Application {
 
       if (!Number.isFinite(youtubeVolume)) return;
       const normalized = Math.min(1, Math.max(0, youtubeVolume / 100));
+      const global = Math.max(0.01, Math.min(1, Number(impTheaterState().globalVolume ?? 0.8)));
       const current = Number(game.settings.get(IMP_THEATER_MODULE_ID, "localVolume"));
-      if (Math.abs(normalized - current) < 0.02) return;
+      const localFromYoutube = Math.min(1, Math.max(0, normalized / global));
+      if (Math.abs(localFromYoutube - current) < 0.02) return;
 
-      game.settings.set(IMP_THEATER_MODULE_ID, "localVolume", normalized);
+      game.settings.set(IMP_THEATER_MODULE_ID, "localVolume", localFromYoutube);
       const slider = (this.element instanceof HTMLElement ? this.element : this.element?.[0])?.querySelector("[data-action='volume']");
-      if (slider) slider.value = String(normalized);
+      if (slider) slider.value = String(localFromYoutube);
     }, 1000);
   }
 
@@ -734,7 +932,7 @@ class ImpTheaterWindow extends Application {
     if (!this.rendered) return;
 
     const state = impTheaterState();
-    this._applyLocalVolume();
+    this._applyLocalVolume(undefined, state);
 
     if (state.sourceType === "youtube") {
       this._scheduleYoutubeApply(state);
@@ -755,6 +953,22 @@ class ImpTheaterWindow extends Application {
     } else if (!state.playing && !media.paused) {
       media.pause();
     }
+  }
+
+  async _setGlobalVolume(volume) {
+    if (!game.user?.isGM) return;
+    const state = impTheaterState();
+    const globalVolume = Math.min(1, Math.max(0, Number(volume)));
+    this._applyLocalVolume(undefined, { ...state, globalVolume });
+    impTheaterTransientState = foundry.utils.deepClone({ ...state, globalVolume });
+
+    window.clearTimeout(this._globalVolumeSaveTimer);
+    this._globalVolumeSaveTimer = window.setTimeout(async () => {
+      await impTheaterSetState({
+        ...impTheaterState(),
+        globalVolume
+      });
+    }, 120);
   }
 
   _applyYoutubeState(state) {
@@ -832,6 +1046,7 @@ const ImpTheaterManager = {
   hidden: false,
   lastRenderedSourceKey: "",
   lastRenderedUiRevision: 0,
+  lastRenderedGlobalVolume: 0.8,
 
   init() {
     this.createLauncher();
@@ -869,6 +1084,7 @@ const ImpTheaterManager = {
 
   syncToState(state) {
     const nextKey = impTheaterSourceKey(state);
+    const nextGlobalVolume = Number(state.globalVolume ?? 0.8);
     if (this.app?.rendered && this.lastRenderedSourceKey && this.lastRenderedSourceKey !== nextKey) {
       this.render();
       return;
@@ -876,6 +1092,15 @@ const ImpTheaterManager = {
 
     if (this.app?.rendered && this.lastRenderedUiRevision !== (state.uiRevision ?? 0)) {
       this.app._refreshLists(state);
+      this.updateLauncher();
+      return;
+    }
+
+    if (this.app?.rendered && Math.abs(this.lastRenderedGlobalVolume - nextGlobalVolume) > 0.001) {
+      this.lastRenderedGlobalVolume = nextGlobalVolume;
+      this.app._applyLocalVolume(undefined, state);
+      const slider = this.app._getWindowElement()?.querySelector("[data-action='global-volume']");
+      if (slider) slider.value = String(nextGlobalVolume);
       this.updateLauncher();
       return;
     }
@@ -1003,6 +1228,14 @@ function registerImpTheaterSettings() {
     type: Number,
     default: 0.8
   });
+
+  game.settings.register(IMP_THEATER_MODULE_ID, "windowState", {
+    name: "IMPTHEATER.Settings.WindowState.Name",
+    scope: "client",
+    config: false,
+    type: Object,
+    default: {}
+  });
 }
 
 function registerImpTheaterSocket() {
@@ -1050,3 +1283,4 @@ Hooks.once("ready", () => {
     setState: (state) => game.user?.isGM ? impTheaterSetState(state) : null
   };
 });
+

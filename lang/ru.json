@@ -18,6 +18,9 @@
       },
       "LocalVolume": {
         "Name": "Локальная громкость"
+      },
+      "WindowState": {
+        "Name": "Состояние окна"
       }
     },
     "UI": {
@@ -58,7 +61,8 @@
       "Paused": "Пауза",
       "YoutubeNote": "YouTube embed синхронизируется, но каждому игроку всё равно нужен прямой доступ к YouTube.",
       "Empty": "GM может загрузить Foundry-файл, direct media URL или YouTube embed link.",
-      "LocalVolume": "Локальная громкость"
+      "LocalVolume": "Локальная громкость",
+      "GlobalVolume": "Глобальная громкость"
     },
     "Notifications": {
       "SourceRequired": "Imp Theater: сначала добавьте source URL.",

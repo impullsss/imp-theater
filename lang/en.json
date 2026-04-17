@@ -18,6 +18,9 @@
       },
       "LocalVolume": {
         "Name": "Local volume"
+      },
+      "WindowState": {
+        "Name": "Window state"
       }
     },
     "UI": {
@@ -58,7 +61,8 @@
       "Paused": "Paused",
       "YoutubeNote": "YouTube embed is synchronized, but each player still needs direct access to YouTube.",
       "Empty": "GM can load a Foundry file, a direct media URL, or a YouTube embed link.",
-      "LocalVolume": "Local volume"
+      "LocalVolume": "Local volume",
+      "GlobalVolume": "Global volume"
     },
     "Notifications": {
       "SourceRequired": "Imp Theater: add a source URL first.",

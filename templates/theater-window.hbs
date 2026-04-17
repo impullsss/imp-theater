@@ -13,6 +13,13 @@
         <input type="text" name="title" value="{{state.title}}" placeholder="{{localize 'IMPTHEATER.UI.TitlePlaceholder'}}">
       </div>
 
+      <div class="imp-theater-volume-row">
+        <label>
+          {{localize "IMPTHEATER.UI.GlobalVolume"}}
+          <input type="range" min="0" max="1" step="0.01" value="{{globalVolume}}" data-action="global-volume">
+        </label>
+      </div>
+
       <div class="imp-theater-playlists">
         <h3>{{localize "IMPTHEATER.UI.Playlists"}}</h3>
         <div class="imp-theater-playlist-tools">
@@ -108,3 +115,4 @@
     </label>
   </footer>
 </form>
+
