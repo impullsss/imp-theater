@@ -21,6 +21,7 @@ function impTheaterDefaultState() {
     playlistIndex: -1,
     globalVolume: 1,
     uiRevision: 0,
+    loop: false,
     playing: false,
     position: 0,
     updatedAt: Date.now()
@@ -200,6 +201,7 @@ class ImpTheaterWindow extends Application {
       youtubeEmbedUrl: isYoutube ? this._youtubeEmbedUrl(youtubeId) : "",
       localVolume: this._normalizeVolumeMultiplier(game.settings.get(IMP_THEATER_MODULE_ID, "localVolume")),
       globalVolume: this._normalizeVolumeMultiplier(state.globalVolume),
+      loopActive: Boolean(state.loop),
       sourceTypeAuto: sourceType === "auto",
       sourceTypeDirect: sourceType === "direct",
       sourceTypeYoutube: sourceType === "youtube",
@@ -232,6 +234,7 @@ class ImpTheaterWindow extends Application {
       if (action === "pause") await this._setPlayback(false);
       if (action === "stop") await this._stopPlayback();
       if (action === "sync") await this._syncPlayback();
+      if (action === "toggle-loop") await this._toggleLoop();
       if (action === "previous") await this._playPreviousPlaylistItem();
       if (action === "next") await this._playNextPlaylistItem();
       if (action === "create-playlist") await this._createPlaylist(root);
@@ -272,6 +275,7 @@ class ImpTheaterWindow extends Application {
     media?.addEventListener("error", () => {
       ui.notifications.warn(impTheaterT("Notifications.MediaError"));
     });
+    media?.addEventListener("ended", () => this._handleMediaEnded());
 
     this._youtubeFrame()?.addEventListener("load", () => {
       this._prepareYoutubePlayer();
@@ -522,8 +526,9 @@ class ImpTheaterWindow extends Application {
           this._startYoutubeVolumePolling();
           this._scheduleYoutubeApply();
         },
-        onStateChange: () => {
+        onStateChange: (event) => {
           this._captureYoutubeCurrentTime();
+          this._handleYoutubeStateChange(event);
           this._scheduleYoutubeGMSyncFromPlayer();
         }
       }
@@ -535,10 +540,27 @@ class ImpTheaterWindow extends Application {
       enablejsapi: "1",
       rel: "0",
       modestbranding: "1",
-      playsinline: "1"
+      playsinline: "1",
+      playlist: id
     });
     if (globalThis.location?.origin) params.set("origin", globalThis.location.origin);
     return `https://www.youtube.com/embed/${encodeURIComponent(id)}?${params.toString()}`;
+  }
+
+  async _handleYoutubeStateChange(event) {
+    if (!game.user?.isGM) return;
+    const state = impTheaterState();
+    if (!state.loop || !this._isYoutubeState(state)) return;
+
+    const endedState = globalThis.YT?.PlayerState?.ENDED ?? 0;
+    if (event?.data !== endedState) return;
+
+    await impTheaterSetState({
+      ...state,
+      playing: true,
+      position: 0,
+      updatedAt: Date.now()
+    });
   }
 
   _currentPositionFromPlayer() {
@@ -580,6 +602,12 @@ class ImpTheaterWindow extends Application {
 
     const playlistsRoot = element.querySelector(".imp-theater-playlists");
     if (playlistsRoot) {
+      const content = element.querySelector(".window-content");
+      const contentScrollTop = content?.scrollTop ?? 0;
+      const listScrollTop = playlistsRoot.querySelector(".imp-theater-playlist-list")?.scrollTop
+        ?? playlistsRoot.querySelector("ol")?.scrollTop
+        ?? 0;
+
       playlistsRoot.innerHTML = `
         <h3>${impTheaterEscape(impTheaterT("UI.Playlists"))}</h3>
         <div class="imp-theater-playlist-tools">
@@ -602,7 +630,7 @@ class ImpTheaterWindow extends Application {
           </button>
         </div>
         ${activeItems.length ? `
-          <ol>
+          <ol class="imp-theater-playlist-list">
             ${activeItems.map((item, index) => `
               <li class="${activePlaylist?.id === state.playingPlaylistId && index === state.playlistIndex ? "is-playing" : ""}">
                 <span>${impTheaterEscape(item.title || item.sourceUrl)}</span>
@@ -618,25 +646,35 @@ class ImpTheaterWindow extends Application {
         ` : `<p>${impTheaterEscape(impTheaterT("UI.PlaylistEmpty"))}</p>`}
         <div class="imp-theater-playlist-nav">
           <button type="button" data-action="play">
-            <i class="fas fa-play"></i> ${impTheaterEscape(impTheaterT("UI.Play"))}
+            <i class="fas fa-play"></i><span>${impTheaterEscape(impTheaterT("UI.Play"))}</span>
           </button>
           <button type="button" data-action="pause">
-            <i class="fas fa-pause"></i> ${impTheaterEscape(impTheaterT("UI.Pause"))}
+            <i class="fas fa-pause"></i><span>${impTheaterEscape(impTheaterT("UI.Pause"))}</span>
           </button>
           <button type="button" data-action="stop">
-            <i class="fas fa-stop"></i> ${impTheaterEscape(impTheaterT("UI.Stop"))}
+            <i class="fas fa-stop"></i><span>${impTheaterEscape(impTheaterT("UI.Stop"))}</span>
           </button>
           <button type="button" data-action="sync">
-            <i class="fas fa-arrows-rotate"></i> ${impTheaterEscape(impTheaterT("UI.Sync"))}
+            <i class="fas fa-arrows-rotate"></i><span>${impTheaterEscape(impTheaterT("UI.Sync"))}</span>
+          </button>
+          <button type="button" data-action="toggle-loop" class="${state.loop ? "is-active" : ""}" title="${impTheaterEscape(impTheaterT("UI.LoopTitle"))}">
+            <i class="fas fa-repeat"></i><span>${impTheaterEscape(impTheaterT("UI.Loop"))}</span>
           </button>
           <button type="button" data-action="previous" ${activeItems.length ? "" : "disabled"}>
-            <i class="fas fa-backward-step"></i> ${impTheaterEscape(impTheaterT("UI.Previous"))}
+            <i class="fas fa-backward-step"></i><span>${impTheaterEscape(impTheaterT("UI.Previous"))}</span>
           </button>
           <button type="button" data-action="next" ${activeItems.length ? "" : "disabled"}>
-            <i class="fas fa-forward-step"></i> ${impTheaterEscape(impTheaterT("UI.Next"))}
+            <i class="fas fa-forward-step"></i><span>${impTheaterEscape(impTheaterT("UI.Next"))}</span>
           </button>
         </div>
       `;
+
+      window.requestAnimationFrame(() => {
+        const nextContent = element.querySelector(".window-content");
+        const nextList = playlistsRoot.querySelector(".imp-theater-playlist-list");
+        if (nextContent) nextContent.scrollTop = contentScrollTop;
+        if (nextList) nextList.scrollTop = listScrollTop;
+      });
     }
 
     ImpTheaterManager.lastRenderedUiRevision = state.uiRevision ?? 0;
@@ -746,6 +784,27 @@ class ImpTheaterWindow extends Application {
     await impTheaterSetState({
       ...state,
       position: this._currentPositionFromPlayer(),
+      updatedAt: Date.now()
+    });
+  }
+
+  async _toggleLoop() {
+    const state = impTheaterState();
+    await impTheaterSetState({
+      ...state,
+      loop: !state.loop,
+      uiRevision: Number(state.uiRevision || 0) + 1
+    });
+  }
+
+  async _handleMediaEnded() {
+    const state = impTheaterState();
+    if (!state.loop || state.sourceType === "youtube" || !game.user?.isGM) return;
+
+    await impTheaterSetState({
+      ...state,
+      playing: true,
+      position: 0,
       updatedAt: Date.now()
     });
   }
@@ -952,6 +1011,7 @@ class ImpTheaterWindow extends Application {
 
     const media = this._mediaElement();
     if (!media) return;
+    media.loop = Boolean(state.loop);
 
     const targetPosition = impTheaterCurrentPosition(state);
     const tolerance = game.settings.get(IMP_THEATER_MODULE_ID, "syncTolerance");
@@ -1294,4 +1354,3 @@ Hooks.once("ready", () => {
     setState: (state) => game.user?.isGM ? impTheaterSetState(state) : null
   };
 });
-

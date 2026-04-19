@@ -41,7 +41,7 @@
         </div>
 
         {{#if hasActivePlaylistItems}}
-          <ol>
+          <ol class="imp-theater-playlist-list">
             {{#each activePlaylistItems}}
               <li class="{{#if isPlaying}}is-playing{{/if}}">
                 <span>{{#if title}}{{title}}{{else}}{{sourceUrl}}{{/if}}</span>
@@ -59,12 +59,13 @@
         {{/if}}
 
         <div class="imp-theater-playlist-nav">
-          <button type="button" data-action="play"><i class="fas fa-play"></i> {{localize "IMPTHEATER.UI.Play"}}</button>
-          <button type="button" data-action="pause"><i class="fas fa-pause"></i> {{localize "IMPTHEATER.UI.Pause"}}</button>
-          <button type="button" data-action="stop"><i class="fas fa-stop"></i> {{localize "IMPTHEATER.UI.Stop"}}</button>
-          <button type="button" data-action="sync"><i class="fas fa-arrows-rotate"></i> {{localize "IMPTHEATER.UI.Sync"}}</button>
-          <button type="button" data-action="previous" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-backward-step"></i> {{localize "IMPTHEATER.UI.Previous"}}</button>
-          <button type="button" data-action="next" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-forward-step"></i> {{localize "IMPTHEATER.UI.Next"}}</button>
+          <button type="button" data-action="play"><i class="fas fa-play"></i><span>{{localize "IMPTHEATER.UI.Play"}}</span></button>
+          <button type="button" data-action="pause"><i class="fas fa-pause"></i><span>{{localize "IMPTHEATER.UI.Pause"}}</span></button>
+          <button type="button" data-action="stop"><i class="fas fa-stop"></i><span>{{localize "IMPTHEATER.UI.Stop"}}</span></button>
+          <button type="button" data-action="sync"><i class="fas fa-arrows-rotate"></i><span>{{localize "IMPTHEATER.UI.Sync"}}</span></button>
+          <button type="button" data-action="toggle-loop" class="{{#if loopActive}}is-active{{/if}}" title="{{localize 'IMPTHEATER.UI.LoopTitle'}}"><i class="fas fa-repeat"></i><span>{{localize "IMPTHEATER.UI.Loop"}}</span></button>
+          <button type="button" data-action="previous" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-backward-step"></i><span>{{localize "IMPTHEATER.UI.Previous"}}</span></button>
+          <button type="button" data-action="next" {{#unless hasActivePlaylistItems}}disabled{{/unless}}><i class="fas fa-forward-step"></i><span>{{localize "IMPTHEATER.UI.Next"}}</span></button>
         </div>
       </div>
     </section>
@@ -115,4 +116,3 @@
     </label>
   </footer>
 </form>
-

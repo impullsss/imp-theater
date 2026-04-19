@@ -62,7 +62,9 @@
       "YoutubeNote": "YouTube embed is synchronized, but each player still needs direct access to YouTube.",
       "Empty": "GM can load a Foundry file, a direct media URL, or a YouTube embed link.",
       "LocalVolume": "Local volume",
-      "GlobalVolume": "Global volume"
+      "GlobalVolume": "Global volume",
+      "Loop": "Loop",
+      "LoopTitle": "Repeat the current media"
     },
     "Notifications": {
       "SourceRequired": "Imp Theater: add a source URL first.",

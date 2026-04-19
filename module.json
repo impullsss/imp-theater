@@ -2,7 +2,7 @@
   "id": "imp-theater",
   "title": "Imp Theater",
   "description": "A small system-agnostic watch party module for synchronized media playback in Foundry VTT.",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "authors": [
     {
       "name": "Impullsss"
@@ -38,4 +38,3 @@
     "requires": []
   }
 }
-

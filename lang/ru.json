@@ -43,8 +43,8 @@
       "Pause": "Pause",
       "Stop": "Stop",
       "Sync": "Sync",
-      "Previous": "Предыдущий",
-      "Next": "Следующий",
+      "Previous": "Назад",
+      "Next": "Дальше",
       "Playlists": "Плейлисты",
       "PlaylistName": "Название плейлиста",
       "CreatePlaylist": "Создать плейлист",
@@ -62,7 +62,9 @@
       "YoutubeNote": "YouTube embed синхронизируется, но каждому игроку всё равно нужен прямой доступ к YouTube.",
       "Empty": "GM может загрузить Foundry-файл, direct media URL или YouTube embed link.",
       "LocalVolume": "Локальная громкость",
-      "GlobalVolume": "Глобальная громкость"
+      "GlobalVolume": "Глобальная громкость",
+      "Loop": "Повтор",
+      "LoopTitle": "Повторять текущее видео или трек"
     },
     "Notifications": {
       "SourceRequired": "Imp Theater: сначала добавьте source URL.",
